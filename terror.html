@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jogo de Fugir com Níveis e Jumpscare</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        #menu {
+            width: 100vw;
+            height: 100vh;
+            background-color: black;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: absolute;
+            z-index: 2;
+        }
+        #iniciar-btn {
+            font-size: 24px;
+            background-color: #333;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+        }
+        #jogo-container {
+            width: 100vw;
+            height: 100vh;
+            background-color: black;
+            position: relative;
+            display: none;
+        }
+        #personagem {
+            width: 50px;
+            height: 50px;
+            background-color: red;
+            position: absolute;
+        }
+        /* Substitua o quadrado azul por uma imagem */
+        #inimigo {
+            width: 50px;
+            height: 50px;
+            background-image: url('jumpscare.jpg');
+            background-size: cover;
+            position: absolute;
+        }
+        .item {
+            width: 20px;
+            height: 20px;
+            background-color: yellow;
+            position: absolute;
+        }
+        .item-white {
+            width: 20px;
+            height: 20px;
+            background-color: white;
+            position: absolute;
+        }
+        #jumpscare {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            object-fit: cover;
+            z-index: 1;
+        }
+        #game-over {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 0;
+            color: red;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="menu">
+        <button id="iniciar-btn">Iniciar Jogo</button>
+    </div>
+    
+    <div id="jogo-container">
+        <div id="personagem"></div>
+        <!-- Use o id "inimigo" para a imagem do jumpscare -->
+        <div id="inimigo"></div>
+    </div>
+
+    <img id="jumpscare" src="jumpscare.jpg">
+    <div id="game-over">GAME OVER</div>
+  
+    <script>
+        const menu = document.getElementById('menu');
+        const iniciarBtn = document.getElementById('iniciar-btn');
+        const jogoContainer = document.getElementById('jogo-container');
+        const personagem = document.getElementById('personagem');
+        const inimigo = document.getElementById('inimigo');
+        const jumpscare = document.getElementById('jumpscare');
+        const gameOver = document.getElementById('game-over');
+
+        let nivel = 1;
+        let velocidadePersonagem = 7; // Aumente a velocidade do personagem
+        let velocidadeInimigo = 3;
+        let jogoPerdido = false;
+        let inimigoParado = false;
+
+        function iniciarJogo() {
+            menu.style.display = 'none';
+            jogoContainer.style.display = 'block';
+            iniciarNivel();
+        }
+
+        function iniciarNivel() {
+            const items = document.querySelectorAll('.item');
+            items.forEach(item => item.remove());
+
+            for (let i = 0; i < nivel * 3; i++) {
+                criarItem();
+            }
+
+            // Aumenta a velocidade do inimigo a cada nível, mas não ultrapassa a velocidade do personagem
+            if (velocidadeInimigo < velocidadePersonagem) {
+                velocidadeInimigo++;
+            }
+
+            // Adiciona o quadrado branco a partir do nível 5
+            if (nivel >= 5) {
+                criarItemBranco();
+            }
+        }
+
+        function criarItem() {
+            const item = document.createElement('div');
+            item.className = 'item';
+            item.style.top = Math.floor(Math.random() * (window.innerHeight - 20)) + 'px';
+            item.style.left = Math.floor(Math.random() * (window.innerWidth - 20)) + 'px';
+            document.getElementById('jogo-container').appendChild(item);
+        }
+
+        function criarItemBranco() {
+            const item = document.createElement('div');
+            item.className = 'item-white';
+            item.style.top = Math.floor(Math.random() * (window.innerHeight - 20)) + 'px';
+            item.style.left = Math.floor(Math.random() * (window.innerWidth - 20)) + 'px';
+            document.getElementById('jogo-container').appendChild(item);
+        }
+
+        function atualizarInimigoPosicao() {
+            const personagemRect = personagem.getBoundingClientRect();
+            const inimigoRect = inimigo.getBoundingClientRect();
+
+            // Movimento do inimigo em direção ao personagem, mas apenas se o inimigo não estiver parado
+            if (!inimigoParado) {
+                if (personagemRect.left < inimigoRect.left) {
+                    inimigo.style.left = (inimigoRect.left - velocidadeInimigo) + 'px';
+                } else {
+                    inimigo.style.left = (inimigoRect.left + velocidadeInimigo) + 'px';
+                }
+
+                if (personagemRect.top < inimigoRect.top) {
+                    inimigo.style.top = (inimigoRect.top - velocidadeInimigo) + 'px';
+                } else {
+                    inimigo.style.top = (inimigoRect.top + velocidadeInimigo) + 'px';
+                }
+            }
+        }
+
+        function verificarColisao() {
+            const personagemRect = personagem.getBoundingClientRect();
+            const inimigoRect = inimigo.getBoundingClientRect();
+
+            // Verificar colisão com o inimigo
+            if (personagemRect.left < inimigoRect.right &&
+                personagemRect.right > inimigoRect.left &&
+                personagemRect.top < inimigoRect.bottom &&
+                personagemRect.bottom > inimigoRect.top) {
+                jogoPerdido = true;
+                exibirJumpscare();
+                mostrarGameOver();
+                reiniciarJogo();
+            }
+
+            // Verificar colisão com os itens
+            const items = document.querySelectorAll('.item');
+            items.forEach(item => {
+                const itemRect = item.getBoundingClientRect();
+                if (personagemRect.left < itemRect.right &&
+                    personagemRect.right > itemRect.left &&
+                    personagemRect.top < itemRect.bottom &&
+                    personagemRect.bottom > itemRect.top) {
+                    item.remove();
+                    if (items.length === 1) {
+                        nivel++;
+                        alert(`Nível ${nivel}!`);
+                        inimigoParado = false; // Resetar a parada do inimigo
+                        iniciarNivel();
+                    }
+                }
+            });
+
+            // Verificar colisão com o item branco
+            if (nivel >= 5) {
+                const itemBranco = document.querySelector('.item-white');
+                if (itemBranco) {
+                    const itemBrancoRect = itemBranco.getBoundingClientRect();
+                    if (personagemRect.left < itemBrancoRect.right &&
+                        personagemRect.right > itemBrancoRect.left &&
+                        personagemRect.top < itemBrancoRect.bottom &&
+                        personagemRect.bottom > itemBrancoRect.top) {
+                        itemBranco.remove();
+                        inimigoParado = true;
+                        setTimeout(() => {
+                            inimigoParado = false;
+                        }, 5000); // Inimigo fica parado por 5 segundos
+                    }
+                }
+            }
+        }
+
+        function exibirJumpscare() {
+            jumpscare.style.display = 'block';
+            setTimeout(() => {
+                jumpscare.style.display = 'none';
+            }, 2000); // Tempo em milissegundos para exibir o jumpscare
+        }
+
+        function mostrarGameOver() {
+            gameOver.style.fontSize = '100px';
+            gameOver.style.color = 'red';
+            gameOver.style.opacity = '0';
+            gameOver.style.display = 'block';
+            setTimeout(() => {
+                gameOver.style.transition = 'opacity 1s';
+                gameOver.style.opacity = '1';
+            }, 100); // Tempo em milissegundos antes do início do fade in
+        }
+
+        function reiniciarJogo() {
+            nivel = 1;
+            velocidadePersonagem = 13; // Aumente a velocidade do personagem
+            velocidadeInimigo = 2;
+            jogoPerdido = false;
+            inimigoParado = false; // Resetar a parada do inimigo
+            iniciarNivel();
+            personagem.style.top = '50px';
+            personagem.style.left = '50px';
+            inimigo.style.top = (window.innerHeight - 60) + 'px'; // Posição inicial distante
+            inimigo.style.left = (window.innerWidth - 60) + 'px'; // Posição inicial distante
+            menu.style.display = 'flex'; // Mostrar o menu novamente
+            gameOver.style.display = 'none';
+        }
+
+        document.addEventListener('keydown', (event) => {
+            if (!jogoPerdido) {
+                switch (event.key) {
+                    case 'w':
+                        personagem.style.top = (parseInt(personagem.style.top) - velocidadePersonagem) + 'px';
+                        break;
+                    case 's':
+                        personagem.style.top = (parseInt(personagem.style.top) + velocidadePersonagem) + 'px';
+                        break;
+                    case 'a':
+                        personagem.style.left = (parseInt(personagem.style.left) - velocidadePersonagem) + 'px';
+                        break;
+                    case 'd':
+                        personagem.style.left = (parseInt(personagem.style.left) + velocidadePersonagem) + 'px';
+                        break;
+                    case 'q':
+                        personagem.style.top = (parseInt(personagem.style.top) - velocidadePersonagem) + 'px';
+                        personagem.style.left = (parseInt(personagem.style.left) - velocidadePersonagem) + 'px';
+                        break;
+                    case 'e':
+                        personagem.style.top = (parseInt(personagem.style.top) - velocidadePersonagem) + 'px';
+                        personagem.style.left = (parseInt(personagem.style.left) + velocidadePersonagem) + 'px';
+                        break;
+                    case 'z':
+                        personagem.style.top = (parseInt(personagem.style.top) + velocidadePersonagem) + 'px';
+                        personagem.style.left = (parseInt(personagem.style.left) - velocidadePersonagem) + 'px';
+                        break;
+                    case 'c':
+                        personagem.style.top = (parseInt(personagem.style.top) + velocidadePersonagem) + 'px';
+                        personagem.style.left = (parseInt(personagem.style.left) + velocidadePersonagem) + 'px';
+                        break;
+                }
+                verificarColisao();
+            }
+        });
+
+        iniciarBtn.addEventListener('click', () => {
+            iniciarJogo();
+        });
+
+        // Atualizar a posição do inimigo periodicamente
+        setInterval(() => {
+            if (!jogoPerdido) {
+                atualizarInimigoPosicao();
+                verificarColisao();
+            }
+        }, 50); // 50ms intervalo para atualizar a posição
+    </script>
+</body>
+</html>
